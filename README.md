@@ -78,7 +78,25 @@ El siguiente diagrama muestra las entradas y salidas principales del sistema:
 *   El sistema será completamente autocontenido en la gestión de tickets. No se integrará con pasarelas de pago, facturadores electrónicos ni CRMs externos en esta fase del MVP.
 
 ### 4. Estrategia de Solución
-*(Por definir: cómo usaremos Java, Spring Boot, PostgreSQL multi-tenant y AWS/Terraform para resolver el problema).*
+
+La estrategia de arquitectura se basa en un modelo **Backend como API RESTful** con un enfoque de **Aislamiento Multi-tenant Lógico**, priorizando la seguridad de datos, la trazabilidad normativa y la eficiencia en costos de infraestructura cloud.
+
+#### 4.1 Decisiones Arquitectónicas Fundamentales
+
+| Objetivo / Reto | Decisión de Arquitectura | Justificación / Beneficio |
+| :--- | :--- | :--- |
+| **Aislamiento Multi-tenant (Seguridad y Costos)** | **Base de datos única con columna de inquilino (`tenant_id`)** y filtros globales a nivel de ORM (Hibernate / Spring Data JPA). | Evita el sobrecosto de mantener una base de datos física por cada cliente (Mype), asegurando al mismo tiempo que ningún error en una consulta filtre datos entre empresas. |
+| **Integridad de Datos Legales (Trazabilidad)** | **Transacciones ACID con PostgreSQL** y patrón *Audit Trail* (tabla inmutable de historial de eventos por ticket). | Al ser un software de cumplimiento legal (Indecopi), no es viable la consistencia eventual. Cada cambio de estado se registra de forma síncrona en una base de datos relacional robusta. |
+| **Emisión del Comprobante PDF (Rendimiento)** | **Generación y subida asíncrona** del documento "Hoja de Reclamación" hacia almacenamiento externo (Amazon S3). | La generación de archivos PDF puede consumir recursos de CPU y demorar la respuesta web. Se delegará en un flujo asíncrono para mantener alta velocidad en el formulario web del consumidor. |
+| **Alertas Preventivas de Plazos (Indecopi)** | **Trabajos programados (Cron Jobs con `@Scheduled` en Spring Boot)** que evalúan tiempos de caducidad. | Una tarea nocturna automatizada escanea tickets sin responder y dispara alertas preventivas en cascada antes de cumplirse los 15 días hábiles legales. |
+| **Consistencia de Entornos e Infraestructura** | **Contenedores Docker** y aprovisionamiento mediante **Terraform en AWS (IaC)**. | Permite que el entorno de desarrollo sea idéntico al de producción. El uso de IaC documenta y automatiza toda la red, base de datos administrada y servidores de aplicación. |
+
+#### 4.2 Stack Tecnológico Implementado
+*   **Lenguaje & Framework Principal:** Java 17+ con **Spring Boot 3.x** (Spring Web, Spring Data JPA, Spring Security).
+*   **Base de Datos Principal:** **PostgreSQL** para la persistencia relacional y auditoría transaccional.
+*   **Generación de Documentos:** Librería Java nativa para renderizado del PDF oficial (ej. OpenPDF o iText).
+*   **Infraestructura como Código (IaC):** **Terraform** para aprovisionar AWS VPC, RDS (PostgreSQL) y Amazon ECS / EC2.
+*   **Contenedores:** **Docker** y Docker Compose para desarrollo local y empaquetamiento de despliegue.
 
 ### 5. Vista de Bloques (Componentes)
 *(Por definir: la separación entre la API, la Base de Datos y los Workers asíncronos).*
