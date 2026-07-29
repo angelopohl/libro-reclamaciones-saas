@@ -54,7 +54,28 @@ Las decisiones de diseño de este sistema están limitadas por normativas gubern
 *   **Equipo de Desarrollo:** Al ser desarrollado por un equipo reducido (un solo Ingeniero de Software), se priorizará la mantenibilidad, el código limpio y la automatización del despliegue (CI/CD) sobre optimizaciones de micro-rendimiento que añadan complejidad innecesaria en esta etapa.
 
 ### 3. Contexto y Alcance
-*(Por definir: diagramas de contexto del sistema interactuando con usuarios externos y servicios de correo).*
+
+Esta sección define los límites del sistema "Libro de Reclamaciones SaaS", identificando las interacciones con usuarios humanos y sistemas externos.
+
+#### 3.1 Diagrama de Contexto (Business Context)
+
+El siguiente diagrama muestra las entradas y salidas principales del sistema:
+
+<img src="diagrama-cpntexto-nivel-1.png" width="400" height="290">
+
+#### 3.2 Descripción de Actores y Sistemas Externos
+
+**Actores Humanos:**
+*   **Consumidor Final:** Usuario externo que interactúa únicamente con el formulario incrustado en la web de la Mype. Su flujo termina al recibir la confirmación y su comprobante PDF.
+*   **Administrador de la Mype (Tenant):** Usuario autenticado que ingresa al panel de control (Dashboard) para gestionar los tickets de su empresa, redactar respuestas y descargar reportes obligatorios para Indecopi.
+
+**Sistemas Externos (Dependencias):**
+*   **Servicio de Correo Electrónico (Ej. Amazon SES / SMTP):** El sistema depende de una API de terceros para el envío transaccional de correos. Es crítico, ya que la ley exige que el consumidor reciba su constancia.
+*   **Almacenamiento de Archivos (Ej. Amazon S3):** Sistema externo utilizado para almacenar de forma segura y duradera los PDFs generados y la evidencia adjunta (imágenes/documentos).
+
+#### 3.3 Alcance de la Interfaz Técnica
+*   La comunicación entre el widget web y el backend se realizará a través de una **API RESTful** expuesta bajo el protocolo HTTPS.
+*   El sistema será completamente autocontenido en la gestión de tickets. No se integrará con pasarelas de pago, facturadores electrónicos ni CRMs externos en esta fase del MVP.
 
 ### 4. Estrategia de Solución
 *(Por definir: cómo usaremos Java, Spring Boot, PostgreSQL multi-tenant y AWS/Terraform para resolver el problema).*
