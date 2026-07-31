@@ -121,8 +121,14 @@ La arquitectura interna del backend de la aplicación ("Libro de Reclamaciones S
 *   **Capa de Persistencia (`Repositories`):**
     *   **Responsabilidad:** Interfaces de **Spring Data JPA** (Hibernate) que se comunican con **PostgreSQL**. Utilizan el `tenant_id` en todas las consultas para asegurar el aislamiento lógico transaccional.
 ### 6. Vista de Ejecución (Runtime)
-*(Por definir: cómo fluye la información desde que el cliente envía el reclamo hasta que se guarda y notifica).*
 
+Esta sección describe el comportamiento dinámico del sistema. El siguiente diagrama de secuencia detalla el flujo principal (Happy Path) de registro de un nuevo reclamo, destacando la separación entre procesos síncronos (críticos para asegurar la transacción) y asíncronos (para mejorar los tiempos de respuesta de la API).
+
+#### 6.1 Flujo: Registro de Reclamo por el Consumidor
+![diagrama-ejecucion.png](diagrama-ejecucion.png)
+#### 6.2 Decisiones de Ejecución Clave
+1. **Transaccionalidad Estricta (ACID):** El guardado del reclamo y su registro de auditoría ocurren dentro de un bloque transaccional (`@Transactional` en Spring Boot). Si la auditoría falla, el reclamo no se guarda (Rollback), asegurando consistencia legal.
+2. **Asincronía en Tareas Pesadas:** La generación del PDF y el envío de correos son llamadas asíncronas (`@Async`). Esto permite que el servidor responda con un `HTTP 201 Created` en milisegundos al consumidor, sin hacerlo esperar a que Amazon S3 o SES terminen sus procesos de red.
 ### 7. Vista de Despliegue
 *(Por definir: la infraestructura en AWS utilizando contenedores Docker).*
 
