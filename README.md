@@ -99,8 +99,27 @@ La estrategia de arquitectura se basa en un modelo **Backend como API RESTful** 
 *   **Contenedores:** **Docker** y Docker Compose para desarrollo local y empaquetamiento de despliegue.
 
 ### 5. Vista de Bloques (Componentes)
-*(Por definir: la separación entre la API, la Base de Datos y los Workers asíncronos).*
 
+La arquitectura interna del backend de la aplicación ("Libro de Reclamaciones SaaS") se rige por un diseño modular en capas utilizando **Spring Boot**, separando las responsabilidades de transporte, lógica de negocio, persistencia y seguridad.
+
+#### 5.1 Diagrama de Arquitectura Backend (Nivel de Bloques)
+![diagrama-bloques.png](diagrama-bloques.png)
+#### 5.2 Descripción de los Módulos Principal (Capa por Capa)
+
+*   **Capa de Seguridad y Aislamiento (`Security` / `Tenant Filter`):**
+    *   **Responsabilidad:** Intercepta cada petición entrante. Valida tokens JWT para usuarios administrativos y extrae el identificador de la empresa (`tenant_id`) a partir del encabezado (Header) o el origen de la petición.
+    *   **Importancia:** Es el "guardián" del multi-tenancy. Asegura que el servicio nunca procese información cruzada entre clientes.
+
+*   **Capa de Presentación (`Controllers`):**
+    *   **Responsabilidad:** Expone los endpoints de la API REST (`/api/v1/reclamos`, `/api/v1/tenants`). Valida la sintaxis del JSON de entrada (DTOs) usando Java Bean Validation antes de pasarle el trabajo a la capa de servicios.
+
+*   **Capa de Negocio (`Services`):**
+    *   **`ReclamoService`:** El corazón de la aplicación. Gestiona la creación de tickets, aplica las reglas legales de Indecopi (ej. calcular la fecha límite exacta de los 15 días hábiles) y orquestra la auditoría.
+    *   **`PdfGeneratorService`:** Recibe el reclamo, genera el documento legal en PDF utilizando una plantilla inmutable y lo transmite al almacenamiento de nube (Amazon S3).
+    *   **`AlertSchedulerService`:** Tarea programada nocturna (`@Scheduled`) que evalúa en segundo plano los tiempos restantes de cada ticket en la base de datos y manda alertas por correo a los administradores.
+
+*   **Capa de Persistencia (`Repositories`):**
+    *   **Responsabilidad:** Interfaces de **Spring Data JPA** (Hibernate) que se comunican con **PostgreSQL**. Utilizan el `tenant_id` en todas las consultas para asegurar el aislamiento lógico transaccional.
 ### 6. Vista de Ejecución (Runtime)
 *(Por definir: cómo fluye la información desde que el cliente envía el reclamo hasta que se guarda y notifica).*
 
