@@ -130,8 +130,31 @@ Esta sección describe el comportamiento dinámico del sistema. El siguiente dia
 1. **Transaccionalidad Estricta (ACID):** El guardado del reclamo y su registro de auditoría ocurren dentro de un bloque transaccional (`@Transactional` en Spring Boot). Si la auditoría falla, el reclamo no se guarda (Rollback), asegurando consistencia legal.
 2. **Asincronía en Tareas Pesadas:** La generación del PDF y el envío de correos son llamadas asíncronas (`@Async`). Esto permite que el servidor responda con un `HTTP 201 Created` en milisegundos al consumidor, sin hacerlo esperar a que Amazon S3 o SES terminen sus procesos de red.
 ### 7. Vista de Despliegue
-*(Por definir: la infraestructura en AWS utilizando contenedores Docker).*
 
+La infraestructura de producción está diseñada en **Amazon Web Services (AWS)** bajo una arquitectura de red virtual aislada (VPC), priorizando la seguridad de la base de datos y la automatización mediante Infraestructura como Código (IaC).
+
+#### 7.1 Diagrama de Infraestructura AWS
+![diagrama-despliegue.png](diagrama-despliegue.png)
+#### 7.2 Nodos de Infraestructura y Componentes
+
+1.  **Red (VPC y Subredes):**
+    *   Se crea una VPC dedicada para aislar los recursos.
+    *   **Subred Pública:** Aloja el servidor web. Tiene acceso de entrada desde Internet a través de un Internet Gateway.
+    *   **Subred Privada:** Aloja la base de datos PostgreSQL en Amazon RDS. No tiene IP pública, lo que imposibilita que reciba ataques directos desde el exterior. Solo el contenedor de Spring Boot puede comunicarse con ella.
+
+2.  **Cómputo (Amazon EC2 + Docker):**
+    *   Para la fase MVP, se despliega una instancia EC2 ligera.
+    *   Dentro de la instancia, el backend y sus dependencias (como herramientas de monitoreo) se ejecutan en **Contenedores Docker**, asegurando que el entorno de producción sea idéntico al entorno de desarrollo local.
+
+3.  **Persistencia y Servicios Externos:**
+    *   **Amazon RDS (PostgreSQL):** Base de datos relacional administrada por AWS. Se encarga de los respaldos automáticos (backups) y parches de seguridad, cruciales para resguardar los datos de los reclamos.
+    *   **Amazon S3 & SES:** Servicios 100% *serverless* que se escalan automáticamente según la demanda de generación de PDFs y correos, pagando solo por lo que se consume.
+
+#### 7.3 Aprovisionamiento con Terraform (IaC)
+
+Toda la infraestructura detallada en el diagrama no se configura manualmente en la consola de AWS. Se aprovisiona utilizando **HashiCorp Terraform**.
+*   **Archivos de estado:** La definición de recursos (`main.tf`, `variables.tf`, `network.tf`) vive dentro del repositorio de código, permitiendo versionar la infraestructura de la misma manera en que se versiona el código Java.
+*   **Ventaja:** Si se necesita desplegar un entorno de "Staging" (Pruebas) idéntico al de producción, Terraform lo levanta en minutos ejecutando un solo comando `terraform apply`.
 ### 8. Conceptos Transversales
 *(Por definir: manejo de excepciones, seguridad de base de datos multi-tenant y auditoría de tickets).*
 
