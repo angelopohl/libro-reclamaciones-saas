@@ -155,10 +155,33 @@ La infraestructura de producción está diseñada en **Amazon Web Services (AWS)
 Toda la infraestructura detallada en el diagrama no se configura manualmente en la consola de AWS. Se aprovisiona utilizando **HashiCorp Terraform**.
 *   **Archivos de estado:** La definición de recursos (`main.tf`, `variables.tf`, `network.tf`) vive dentro del repositorio de código, permitiendo versionar la infraestructura de la misma manera en que se versiona el código Java.
 *   **Ventaja:** Si se necesita desplegar un entorno de "Staging" (Pruebas) idéntico al de producción, Terraform lo levanta en minutos ejecutando un solo comando `terraform apply`.
-### 8. Conceptos Transversales
-*(Por definir: manejo de excepciones, seguridad de base de datos multi-tenant y auditoría de tickets).*
+### 8. Conceptos Transversales (Cross-cutting Concepts)
 
-### 9. Decisiones de Arquitectura (ADRs)
-*(Aquí documentaremos decisiones clave como por qué elegimos aislamiento lógico de BD en lugar de físico).*
+Estos conceptos aplican a múltiples partes del sistema y garantizan la consistencia, seguridad y mantenibilidad del código base.
+
+#### 8.1 Manejo Global de Excepciones y Errores
+*   **Centralización (`@ControllerAdvice`):** En lugar de llenar los controladores con bloques `try-catch`, se utiliza un manejador global en Spring Boot. Cualquier excepción no controlada en la capa de servicios (ej. `ReclamoNotFoundException`, `TenantAccessDeniedException`) es interceptada aquí.
+*   **Respuestas Estandarizadas:** El sistema expone errores siguiendo el estándar **RFC 7807 (Problem Details for HTTP APIs)**, asegurando que el frontend o el consumidor web reciba un JSON predecible con el código HTTP adecuado (ej. 400 Bad Request, 404 Not Found, 500 Internal Server Error).
+
+#### 8.2 Seguridad y Protección de Datos
+*   **Autenticación sin estado (Stateless):** El acceso al Dashboard administrativo por parte de las Mypes se protege mediante **JSON Web Tokens (JWT)**.
+*   **Protección PII (Personal Identifiable Information):** Para cumplir con la Ley N° 29733, los datos sensibles en reposo (como números de DNI o teléfonos) no se exponen en logs ni en mensajes de error del sistema.
+*   **CORS Estricto:** La API del widget de reclamaciones solo aceptará peticiones (POST) provenientes de los dominios (URLs) previamente registrados por la Mype, evitando ataques de *Cross-Site Request Forgery (CSRF)* o spam desde orígenes no autorizados.
+
+#### 8.3 Observabilidad y Logging
+*   Se utiliza **SLF4J / Logback** para la generación de logs estructurados.
+*   **MDC (Mapped Diagnostic Context):** En un entorno multi-tenant, cada log del sistema inyecta automáticamente el `tenant_id` y el `trace_id` de la petición. Esto permite que si la "Empresa A" reporta un error, se pueda filtrar rápidamente en la consola del servidor qué ocurrió exactamente con su ticket sin mezclarse con los logs de la "Empresa B".
+
+---
+
+### 9. Decisiones de Arquitectura (ADRs - Architecture Decision Records)
+
+Registro histórico de las decisiones de diseño más críticas tomadas durante la concepción del MVP.
+
+| ID | Título | Decisión | Consecuencias / Riesgos Aceptados |
+| :--- | :--- | :--- | :--- |
+| **ADR-001** | Aislamiento Multi-tenant | **Aislamiento lógico** (Una sola BD, tablas compartidas con columna `tenant_id`). | **Pro:** Menor costo de AWS y fácil mantenimiento inicial. **Contra:** Riesgo de fuga de datos si un desarrollador olvida incluir la cláusula `WHERE tenant_id = ?` (Mitigado usando filtros globales de Hibernate). |
+| **ADR-002** | Generación de PDFs | **Generación y envío asíncrono** mediante hilos secundarios (`@Async`). | **Pro:** Mejora drástica del tiempo de respuesta (UX) para el consumidor final. **Contra:** Si el proceso asíncrono falla, el HTTP ya devolvió "201 OK". (Mitigado mediante reintentos y alertas de logs). |
+| **ADR-003** | Infraestructura Cloud | Uso de **contenedores Docker** aprovisionados con **Terraform**. | **Pro:** Elimina el problema de "funciona en mi máquina". Despliegues repetibles. **Contra:** Curva de aprendizaje inicial ligeramente mayor que desplegar el `.jar` manualmente. |
 
 ---
